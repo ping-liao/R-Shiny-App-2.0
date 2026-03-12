@@ -29,8 +29,8 @@ jobs:
     
       - name: Deploy to shinyapps.io
         env:
-          SHINY_TOKEN: ${{secrets.SHINYAPPTOKEN }}
-          SHINY_SECRET: ${{ secrets.SHINYAPPSECRET }}
+          SHINY_TOKEN: ${{secrets.ShinyToken }}
+          SHINY_SECRET: ${{ secrets.ShinySecret }}
         run: |
           Rscript -e 'install.packages("rsconnect",repos="https://cran.rstudio.com")'
           Rscript -e 'install.packages("shiny",repos="https://cran.rstudio.com")'
