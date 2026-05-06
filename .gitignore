@@ -1,1 +1,21 @@
+# R session
+.Rhistory
+.RData
+.Rdata
+.Ruserdata
+.Rapp.history
 
+# RStudio
+.Rproj.user/
+*.Rproj
+
+# rsconnect / shinyapps deploy state
+rsconnect/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/

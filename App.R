@@ -1,132 +1,299 @@
+# ---------------------------------------------------------------
+# Quantify Your Degree
+#
+# A Shiny app that estimates the financial ROI of a U.S. college
+# degree under both cash-pay and student-loan financing scenarios.
+#
+# Author: Ping Liao
+# Repo:   https://github.com/ping-liao/R-Shiny-App-2.0
+# Live:   https://pingliao.shinyapps.io/Quantify_Your_Degree/
+# ---------------------------------------------------------------
+
 library(shiny)
 library(shinydashboard)
+
+# ---- Finance helpers ------------------------------------------
+
+# Sum of the geometric series 1 + (1+r) + (1+r)^2 + ... + (1+r)^(n-1).
+# Closed-form is faster, more accurate, and avoids the off-by-one
+# loop bugs from the previous version of this app.
+geom_sum <- function(r, n) {
+  if (n <= 0) return(0)
+  if (abs(r) < 1e-9) return(n)
+  ((1 + r)^n - 1) / r
+}
+
+# Total opportunity cost across `years` of study, assuming the
+# student forgoes (current_salary - income_during_study) in year 0
+# and that this gap grows at `growth` each subsequent study year.
+opportunity_cost <- function(current_salary, income_during_study, years, growth) {
+  base <- max(current_salary - income_during_study, 0)
+  base * geom_sum(growth, years)
+}
+
+# Total post-graduation earnings uplift over a `horizon`-year
+# recovery window. In year t (1..horizon):
+#   post-school salary  = salary_after  * (1 + growth)^(t - 1)
+#   counterfactual wage = current_salary * (1 + growth)^(years + t - 1)
+# Net uplift summed across the horizon collapses to:
+earnings_uplift <- function(salary_after, current_salary, years, horizon, growth) {
+  per_year_delta <- salary_after - current_salary * (1 + growth)^years
+  per_year_delta * geom_sum(growth, horizon)
+}
+
+# Standard amortizing-loan monthly payment.
+loan_monthly_payment <- function(principal, apr, term_years) {
+  if (principal <= 0 || term_years <= 0) return(0)
+  m <- apr / 12
+  n <- term_years * 12
+  if (abs(m) < 1e-9) return(principal / n)
+  principal * m / (1 - (1 + m)^(-n))
+}
+
+# Total interest paid over the life of an amortizing loan.
+loan_total_interest <- function(principal, apr, term_years) {
+  pay <- loan_monthly_payment(principal, apr, term_years)
+  if (pay == 0) return(0)
+  pay * term_years * 12 - principal
+}
+
+# Render a USD figure as a thousand-separated dollar string.
+fmt_usd <- function(x) {
+  paste0("$", format(round(x), big.mark = ",", scientific = FALSE))
+}
+
+# Shared bar chart for cost vs. revenue, used by both tabs.
+plot_cost_vs_revenue <- function(cost, revenue, title) {
+  barplot(
+    c(cost, revenue),
+    names.arg = c("Investment Cost", "Total Revenue"),
+    col       = c("#DB4437", "#4285F4"),
+    main      = title,
+    ylab      = "Amount ($)",
+    border    = NA
+  )
+}
+
+# ---- UI ------------------------------------------------------
 
 ui <- dashboardPage(
   dashboardHeader(title = "Degree Quantifier"),
   dashboardSidebar(
     sidebarMenu(
-      menuItem("Pay in Cash", tabName = "CashPayment", icon = icon("th")),
-      menuItem("Pay with Student Loan", tabName = "LoanOption", icon = icon("dashboard"))
+      menuItem("Pay in Cash",           tabName = "CashPayment", icon = icon("wallet")),
+      menuItem("Pay with Student Loan", tabName = "LoanOption",  icon = icon("hand-holding-usd"))
     )
   ),
   dashboardBody(
     tabItems(
-      # First page content
-      tabItem(tabName = "CashPayment",
-              titlePanel("Quantify Your College Degree"),
-              helpText("Lots of factors should be considered when making a decision to go certain college or not. These factors could be:
-           how much passion we have for certain study field?
-           what is our career plan?
-           whether it is financially making sense?
-           school reputation, scholarship, family opinions...
-           This is a demo project to show how we make this decision solely based on cost and return, which I believe it should not be the sole factor that we consider..."),
-              
-              sidebarLayout(
-                sidebarPanel(
-                  numericInput("Tuition", "Total Tuition Cost ($):", value = 50000, min = 0),
-                  numericInput("Current_Salary", "Current Annual Salary (Do Your Best Estimation) ($):", value = 40000, min = 0),
-                  numericInput("Income_During_Study", "Any Annual Income Estimation During Study? ($):", value = 10000, min = 0),
-                  numericInput("Program_Duration", "How Many Years To Finish the Degree:", value = 4, min = 0),
-                  numericInput("Salary_After_School", "Annual Salary First Year After Study (Do Your Best Estimation) ($):", value = 80000, min = 0),
-                  numericInput("Salary_Increase_Percentage", "Annual Salary Increase Factor (Do Your Best Estimation):", value = 0.05, min = 0),
-                  sliderInput("Years_Post_Study",
-                              "How Soon Would You Expect to Recover the College Cost (Years):",
-                              min = 1,
-                              max = 10,
-                              value = 3),
-                  hr(),
-                  helpText("Tuition: please only fill up out-of-pocket expenses only. Current Salary: please do your best to estimate about the salary if you go out to get a job right now. I do recognize that not every college student works full time before they go to college, but this is the opportunity cost to attend a college. Income during study: do your best estimation about some income such as part time job or scholarship. ")
-                ),
-                
-                mainPanel(
-                  h3("Expected Return"),
-                  wellPanel(
-                    textOutput("net_profit"),
-                    tags$h2(textOutput("roi_pct"), style = "color: #2c3e50;")
-                  ),
-                  plotOutput("roi_plot", height = "300px"),
-                  wellPanel(
-                    tags$h2(textOutput("profitability"), style = "color: #2c3e50;")
-                  )
-                )
-              )
+
+      # ----- Cash tab -----
+      tabItem(
+        tabName = "CashPayment",
+        titlePanel("Quantify Your College Degree — Cash Pay"),
+        helpText(
+          "This is a back-of-the-envelope ROI calculator. Many factors matter ",
+          "in choosing a college (passion, fit, scholarships, family) — this ",
+          "demo isolates the financial dimension only."
+        ),
+        sidebarLayout(
+          sidebarPanel(
+            numericInput("Tuition",              "Total Tuition Cost ($):",                   value = 50000, min = 0),
+            numericInput("Current_Salary",       "Current Annual Salary ($):",                value = 40000, min = 0),
+            numericInput("Income_During_Study",  "Income During Study ($/yr):",               value = 10000, min = 0),
+            numericInput("Program_Duration",     "Years to Finish the Degree:",               value = 4,     min = 1),
+            numericInput("Salary_After_School",  "Expected Salary First Year After Study ($):", value = 80000, min = 0),
+            numericInput("Salary_Increase_Percentage",
+                         "Annual Salary Growth Rate (e.g. 0.05 = 5%):",
+                         value = 0.05, min = 0, step = 0.01),
+            sliderInput("Years_Post_Study",
+                        "Years to Recover the Cost:",
+                        min = 1, max = 30, value = 5),
+            hr(),
+            helpText(
+              "Tuition: out-of-pocket costs only. Current Salary: best estimate of what ",
+              "you would earn if you skipped college (the opportunity cost). Income During Study: ",
+              "part-time wages, scholarships, or stipends that offset that cost."
+            )
+          ),
+          mainPanel(
+            h3("Expected Return"),
+            wellPanel(
+              textOutput("net_profit"),
+              tags$h2(textOutput("roi_pct"), style = "color: #2c3e50;")
+            ),
+            plotOutput("roi_plot", height = "300px"),
+            wellPanel(
+              tags$h3(textOutput("profitability"), style = "color: #2c3e50;")
+            )
+          )
+        )
       ),
-      
-      # Second page content
-      tabItem(tabName = "LoanOption",
-              h2("Quantify Your College Dgree"),
-              helpText("Well, most of students in USA would use student loan. This introduced an interesting issue: interests. We'll get you covered!"),
-              fluidRow(
-                box(
-                  title = "Placeholder Title",
-                  width = 12,
-                  height = 1200,
-                  status = "primary",
-                  solidHeader = FALSE,
-                  background = NULL, # Default is white
-                  "Under developing..."
-                )
-              )
+
+      # ----- Loan tab -----
+      tabItem(
+        tabName = "LoanOption",
+        titlePanel("Quantify Your College Degree — Student Loan"),
+        helpText(
+          "Most U.S. students borrow. This tab folds amortized loan interest ",
+          "into the cost side and recomputes ROI."
+        ),
+        sidebarLayout(
+          sidebarPanel(
+            h4("Degree assumptions"),
+            numericInput("L_Tuition",              "Total Tuition Cost ($):",                   value = 50000, min = 0),
+            numericInput("L_Current_Salary",       "Current Annual Salary ($):",                value = 40000, min = 0),
+            numericInput("L_Income_During_Study",  "Income During Study ($/yr):",               value = 10000, min = 0),
+            numericInput("L_Program_Duration",     "Years to Finish the Degree:",               value = 4,     min = 1),
+            numericInput("L_Salary_After_School",  "Expected Salary First Year After Study ($):", value = 80000, min = 0),
+            numericInput("L_Salary_Increase_Percentage",
+                         "Annual Salary Growth Rate:",
+                         value = 0.05, min = 0, step = 0.01),
+            sliderInput("L_Years_Post_Study",
+                        "Years to Recover the Cost:",
+                        min = 1, max = 30, value = 10),
+            hr(),
+            h4("Loan assumptions"),
+            numericInput("L_Principal",
+                         "Loan Principal ($) — portion of tuition financed:",
+                         value = 40000, min = 0),
+            numericInput("L_APR",
+                         "Annual Interest Rate (e.g. 0.065 = 6.5%):",
+                         value = 0.065, min = 0, step = 0.005),
+            numericInput("L_Term",
+                         "Loan Term (years):",
+                         value = 10, min = 1, max = 30)
+          ),
+          mainPanel(
+            h3("Loan Summary"),
+            wellPanel(
+              textOutput("loan_payment"),
+              textOutput("loan_total_interest"),
+              textOutput("loan_total_paid")
+            ),
+            h3("Expected Return (incl. interest)"),
+            wellPanel(
+              textOutput("L_net_profit"),
+              tags$h2(textOutput("L_roi_pct"), style = "color: #2c3e50;")
+            ),
+            plotOutput("L_roi_plot", height = "300px"),
+            wellPanel(
+              tags$h3(textOutput("L_profitability"), style = "color: #2c3e50;")
+            )
+          )
+        )
       )
     )
   )
-  
 )
 
+# ---- Server --------------------------------------------------
+
 server <- function(input, output, session) {
-  
-  ##calculate cost and return
-  cost = reactive({
-    opp_cost = input$Current_Salary -input$Income_During_Study
-    for (j in 1: input$Program_Duration-1){
-      opp_cost = opp_cost + opp_cost * (1 + input$Salary_Increase_Percentage)^j
-    }
-    return(input$Tuition + opp_cost)
+
+  # ----- Cash scenario -----
+  cash_cost <- reactive({
+    req(input$Program_Duration > 0)
+    opp <- opportunity_cost(
+      current_salary      = input$Current_Salary,
+      income_during_study = input$Income_During_Study,
+      years               = input$Program_Duration,
+      growth              = input$Salary_Increase_Percentage
+    )
+    input$Tuition + opp
   })
-  
-  
-  revenue = reactive({
-    rev_t = input$Salary_After_School - input$Current_Salary *(1+input$Salary_Increase_Percentage)^input$Program_Duration
-    for ( i in 1: input$Years_Post_Study - 1){
-      rev_t = rev_t + rev_t * (1 + input$Salary_Increase_Percentage) ^ i
-    }
-    return(rev_t)
+
+  cash_revenue <- reactive({
+    req(input$Years_Post_Study > 0)
+    earnings_uplift(
+      salary_after   = input$Salary_After_School,
+      current_salary = input$Current_Salary,
+      years          = input$Program_Duration,
+      horizon        = input$Years_Post_Study,
+      growth         = input$Salary_Increase_Percentage
+    )
   })
-  # Calculate Net Profit
-  profit <- reactive({revenue() - cost()})
-  
-  # Calculate ROI percentage
-  roi_val <- reactive({
-    req(input$Tuition > 0) # Ensure cost is not zero to avoid error
-    (profit() / cost()) * 100
+
+  cash_profit <- reactive({ cash_revenue() - cash_cost() })
+  cash_roi    <- reactive({
+    req(cash_cost() > 0)
+    100 * cash_profit() / cash_cost()
   })
-  
+
   output$net_profit <- renderText({
-    paste("Total Net Profit: $", format(profit(), big.mark = ","))
+    paste0("Total Net Profit: ", fmt_usd(cash_profit()))
   })
-  
   output$roi_pct <- renderText({
-    paste0("ROI: ", round(roi_val(), 2), "%")
+    paste0("ROI: ", round(cash_roi(), 2), "%")
   })
-  
-  # Optional: Simple bar chart comparing Cost vs Revenue
   output$roi_plot <- renderPlot({
-    barplot(c(cost(), revenue()), 
-            names.arg = c("Investment Cost", "Total Revenue"),
-            col = c("#DB4437", "#4285F4"),
-            main = "Cost vs. Revenue Comparison",
-            ylab = "Amount ($)")
+    plot_cost_vs_revenue(cash_cost(), cash_revenue(), "Cost vs. Revenue (Cash Pay)")
   })
-  
   output$profitability <- renderText({
-    # Conditional logic
-    if (profit() > 0) {
-      "The degree is worth going! "
-    } else {
-      "The estimated return from this degree is not meeting expectation."
-    }
+    if (cash_profit() > 0)
+      "Verdict: financially worthwhile."
+    else
+      "Verdict: estimated return falls short."
   })
-  
+
+  # ----- Loan scenario -----
+  loan_pay  <- reactive({ loan_monthly_payment(input$L_Principal, input$L_APR, input$L_Term) })
+  loan_int  <- reactive({ loan_total_interest(input$L_Principal, input$L_APR, input$L_Term) })
+  loan_paid <- reactive({ input$L_Principal + loan_int() })
+
+  loan_cost <- reactive({
+    req(input$L_Program_Duration > 0)
+    opp <- opportunity_cost(
+      current_salary      = input$L_Current_Salary,
+      income_during_study = input$L_Income_During_Study,
+      years               = input$L_Program_Duration,
+      growth              = input$L_Salary_Increase_Percentage
+    )
+    out_of_pocket <- max(input$L_Tuition - input$L_Principal, 0)
+    out_of_pocket + loan_paid() + opp
+  })
+
+  loan_revenue <- reactive({
+    req(input$L_Years_Post_Study > 0)
+    earnings_uplift(
+      salary_after   = input$L_Salary_After_School,
+      current_salary = input$L_Current_Salary,
+      years          = input$L_Program_Duration,
+      horizon        = input$L_Years_Post_Study,
+      growth         = input$L_Salary_Increase_Percentage
+    )
+  })
+
+  loan_profit <- reactive({ loan_revenue() - loan_cost() })
+  loan_roi    <- reactive({
+    req(loan_cost() > 0)
+    100 * loan_profit() / loan_cost()
+  })
+
+  output$loan_payment <- renderText({
+    paste0("Estimated Monthly Payment: ", fmt_usd(loan_pay()))
+  })
+  output$loan_total_interest <- renderText({
+    paste0("Total Interest Paid: ", fmt_usd(loan_int()))
+  })
+  output$loan_total_paid <- renderText({
+    paste0("Total Loan Outflow (principal + interest): ", fmt_usd(loan_paid()))
+  })
+  output$L_net_profit <- renderText({
+    paste0("Total Net Profit: ", fmt_usd(loan_profit()))
+  })
+  output$L_roi_pct <- renderText({
+    paste0("ROI: ", round(loan_roi(), 2), "%")
+  })
+  output$L_roi_plot <- renderPlot({
+    plot_cost_vs_revenue(loan_cost(), loan_revenue(), "Cost vs. Revenue (Student Loan)")
+  })
+  output$L_profitability <- renderText({
+    if (loan_profit() > 0)
+      "Verdict: financially worthwhile, even after interest."
+    else
+      "Verdict: estimated return falls short of total loan cost."
+  })
 }
 
 shinyApp(ui, server)

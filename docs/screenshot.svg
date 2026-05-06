@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="Degree Quantifier dashboard mockup">
+  <defs>
+    <linearGradient id="cardShadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App background -->
+  <rect width="1280" height="760" fill="#ecf0f5"/>
+
+  <!-- Top navbar -->
+  <rect x="0" y="0" width="1280" height="50" fill="#3c8dbc"/>
+  <rect x="0" y="0" width="230" height="50" fill="#367fa9"/>
+  <text x="20" y="32" fill="#fff" font-size="18" font-weight="600">Degree Quantifier</text>
+  <g fill="#fff" opacity="0.85">
+    <rect x="200" y="22" width="20" height="2"/>
+    <rect x="200" y="28" width="20" height="2"/>
+    <rect x="200" y="34" width="20" height="2"/>
+  </g>
+
+  <!-- Left sidebar -->
+  <rect x="0" y="50" width="230" height="710" fill="#222d32"/>
+  <!-- Active menu item -->
+  <rect x="0" y="80" width="230" height="42" fill="#1e282c"/>
+  <rect x="0" y="80" width="3" height="42" fill="#3c8dbc"/>
+  <text x="50" y="106" fill="#fff" font-size="14">Pay in Cash</text>
+  <circle cx="28" cy="101" r="6" fill="none" stroke="#b8c7ce" stroke-width="1.5"/>
+  <!-- Inactive menu item -->
+  <text x="50" y="148" fill="#b8c7ce" font-size="14">Pay with Student Loan</text>
+  <circle cx="28" cy="143" r="6" fill="none" stroke="#b8c7ce" stroke-width="1.5"/>
+
+  <!-- Title strip -->
+  <text x="260" y="92" fill="#1f2d3d" font-size="22" font-weight="700">Quantify Your College Degree — Cash Pay</text>
+  <text x="260" y="118" fill="#5e6c77" font-size="13">A back-of-the-envelope ROI calculator. This demo isolates the financial dimension only.</text>
+
+  <!-- Inputs card -->
+  <g>
+    <rect x="260" y="140" width="340" height="600" rx="3" fill="#fff" stroke="#d2d6de"/>
+    <rect x="260" y="140" width="340" height="600" rx="3" fill="url(#cardShadow)"/>
+    <text x="280" y="170" fill="#1f2d3d" font-size="14" font-weight="600">Inputs</text>
+
+    <!-- Numeric inputs -->
+    <g font-size="12" fill="#5e6c77">
+      <text x="280" y="200">Total Tuition Cost ($)</text>
+      <rect x="280" y="208" width="300" height="32" fill="#fff" stroke="#d2d6de"/>
+      <text x="294" y="229" fill="#1f2d3d" font-size="13">50,000</text>
+
+      <text x="280" y="266">Current Annual Salary ($)</text>
+      <rect x="280" y="274" width="300" height="32" fill="#fff" stroke="#d2d6de"/>
+      <text x="294" y="295" fill="#1f2d3d" font-size="13">40,000</text>
+
+      <text x="280" y="332">Income During Study ($/yr)</text>
+      <rect x="280" y="340" width="300" height="32" fill="#fff" stroke="#d2d6de"/>
+      <text x="294" y="361" fill="#1f2d3d" font-size="13">10,000</text>
+
+      <text x="280" y="398">Years to Finish the Degree</text>
+      <rect x="280" y="406" width="300" height="32" fill="#fff" stroke="#d2d6de"/>
+      <text x="294" y="427" fill="#1f2d3d" font-size="13">4</text>
+
+      <text x="280" y="464">Expected Salary First Year After ($)</text>
+      <rect x="280" y="472" width="300" height="32" fill="#fff" stroke="#d2d6de"/>
+      <text x="294" y="493" fill="#1f2d3d" font-size="13">80,000</text>
+
+      <text x="280" y="530">Annual Salary Growth Rate</text>
+      <rect x="280" y="538" width="300" height="32" fill="#fff" stroke="#d2d6de"/>
+      <text x="294" y="559" fill="#1f2d3d" font-size="13">0.05</text>
+
+      <text x="280" y="600">Years to Recover the Cost</text>
+      <line x1="280" y1="630" x2="580" y2="630" stroke="#d2d6de" stroke-width="3" stroke-linecap="round"/>
+      <line x1="280" y1="630" x2="430" y2="630" stroke="#3c8dbc" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="430" cy="630" r="8" fill="#3c8dbc"/>
+      <text x="422" y="660" fill="#1f2d3d" font-size="12">10 years</text>
+    </g>
+  </g>
+
+  <!-- Output card: KPIs -->
+  <g>
+    <rect x="620" y="140" width="640" height="160" rx="3" fill="#fff" stroke="#d2d6de"/>
+    <text x="640" y="170" fill="#1f2d3d" font-size="14" font-weight="600">Expected Return</text>
+
+    <text x="640" y="206" fill="#5e6c77" font-size="13">Total Net Profit</text>
+    <text x="640" y="240" fill="#1f2d3d" font-size="26" font-weight="700">$215,387</text>
+
+    <text x="940" y="206" fill="#5e6c77" font-size="13">ROI</text>
+    <text x="940" y="240" fill="#2c3e50" font-size="26" font-weight="700">120.12%</text>
+
+    <rect x="640" y="262" width="600" height="22" rx="11" fill="#e8f4ff"/>
+    <text x="660" y="277" fill="#2c3e50" font-size="12" font-weight="600">Verdict: financially worthwhile.</text>
+  </g>
+
+  <!-- Output card: Bar chart -->
+  <g>
+    <rect x="620" y="320" width="640" height="420" rx="3" fill="#fff" stroke="#d2d6de"/>
+    <text x="640" y="350" fill="#1f2d3d" font-size="14" font-weight="600">Cost vs. Revenue (Cash Pay)</text>
+
+    <!-- Y axis -->
+    <line x1="700" y1="380" x2="700" y2="690" stroke="#b0b8bf" stroke-width="1"/>
+    <line x1="700" y1="690" x2="1230" y2="690" stroke="#b0b8bf" stroke-width="1"/>
+    <g font-size="10" fill="#7a8893">
+      <text x="660" y="385" text-anchor="end">$500k</text>
+      <text x="660" y="465" text-anchor="end">$400k</text>
+      <text x="660" y="545" text-anchor="end">$300k</text>
+      <text x="660" y="625" text-anchor="end">$200k</text>
+      <text x="660" y="693" text-anchor="end">$100k</text>
+    </g>
+
+    <!-- Bars -->
+    <rect x="800"  y="578" width="160" height="112" fill="#DB4437"/>
+    <rect x="1020" y="445" width="160" height="245" fill="#4285F4"/>
+    <text x="880"  y="710" text-anchor="middle" fill="#5e6c77" font-size="12">Investment Cost</text>
+    <text x="1100" y="710" text-anchor="middle" fill="#5e6c77" font-size="12">Total Revenue</text>
+    <text x="880"  y="568" text-anchor="middle" fill="#1f2d3d" font-size="12" font-weight="600">$179,304</text>
+    <text x="1100" y="435" text-anchor="middle" fill="#1f2d3d" font-size="12" font-weight="600">$394,691</text>
+  </g>
+</svg>
