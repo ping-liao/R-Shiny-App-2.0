@@ -20,33 +20,44 @@ jobs:
           r-version: 'release'
           use-public-rspm: false
 
-      # Force CRAN as the default repo for *every* subsequent R session
-      # (Rscript reads ~/.Rprofile automatically). This is what rsconnect
-      # captures into manifest.json, so it has to be a real https URL.
+      # Force CRAN as the default repo for every R session.
+      # rsconnect captures this when building manifest.json, and shinyapps.io
+      # needs an absolute https URL it can resolve.
       - name: Pin CRAN repo via .Rprofile
         run: |
           echo 'options(repos = c(CRAN = "https://cloud.r-project.org"))' > "$HOME/.Rprofile"
-          echo "Confirming repos:"
           Rscript -e 'print(getOption("repos"))'
 
+      # System libs needed when packages compile from source. The list covers
+      # everything in the shiny + shinydashboard + rsconnect dependency tree
+      # that needs a -dev header (fs needs libuv, openssl needs libssl, etc.).
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libuv1-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            libpng-dev \
+            libjpeg-dev \
+            libtiff5-dev
 
       - name: Install R packages
         run: |
           Rscript -e 'install.packages(c("rsconnect", "shiny", "shinydashboard"))'
-          Rscript -e 'cat("Installed:\n"); print(installed.packages()[c("shiny","shinydashboard","rsconnect"), c("Version","LibPath")])'
+          Rscript -e 'cat("Installed:\n"); print(installed.packages()[c("shiny","shinydashboard","rsconnect"), c("Version","Built")])'
 
-      # Generate the manifest separately so we can see exactly what's
-      # being sent. If this step's output shows shiny/shinydashboard
-      # with proper https://cloud.r-project.org URLs, we're good.
+      # Generate manifest separately so we can see exactly what's being shipped.
       - name: Generate and inspect manifest.json
         run: |
           Rscript -e 'rsconnect::writeManifest()'
-          echo "----- manifest.json (first 120 lines) -----"
-          head -120 manifest.json || true
+          echo "----- manifest.json (first 150 lines) -----"
+          head -150 manifest.json || true
           echo "----- end -----"
 
       - name: Deploy to shinyapps.io
