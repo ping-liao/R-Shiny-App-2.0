@@ -10,11 +10,6 @@ jobs:
     name: Deploy to shinyapps
     runs-on: ubuntu-latest
 
-    env:
-      # A real https CRAN mirror -- avoids the RSPM URL scheme that
-      # shinyapps.io's builder can't resolve.
-      CRAN_REPO: https://cloud.r-project.org
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,8 +17,17 @@ jobs:
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: 'release'      # tracks shinyapps.io's runtime (4.5.x)
-          use-public-rspm: false    # do NOT swap CRAN for RSPM
+          r-version: 'release'
+          use-public-rspm: false
+
+      # Force CRAN as the default repo for *every* subsequent R session
+      # (Rscript reads ~/.Rprofile automatically). This is what rsconnect
+      # captures into manifest.json, so it has to be a real https URL.
+      - name: Pin CRAN repo via .Rprofile
+        run: |
+          echo 'options(repos = c(CRAN = "https://cloud.r-project.org"))' > "$HOME/.Rprofile"
+          echo "Confirming repos:"
+          Rscript -e 'print(getOption("repos"))'
 
       - name: Install system dependencies
         run: |
@@ -32,10 +36,18 @@ jobs:
 
       - name: Install R packages
         run: |
-          Rscript -e 'install.packages(
-            c("rsconnect", "shiny", "shinydashboard"),
-            repos = Sys.getenv("CRAN_REPO")
-          )'
+          Rscript -e 'install.packages(c("rsconnect", "shiny", "shinydashboard"))'
+          Rscript -e 'cat("Installed:\n"); print(installed.packages()[c("shiny","shinydashboard","rsconnect"), c("Version","LibPath")])'
+
+      # Generate the manifest separately so we can see exactly what's
+      # being sent. If this step's output shows shiny/shinydashboard
+      # with proper https://cloud.r-project.org URLs, we're good.
+      - name: Generate and inspect manifest.json
+        run: |
+          Rscript -e 'rsconnect::writeManifest()'
+          echo "----- manifest.json (first 120 lines) -----"
+          head -120 manifest.json || true
+          echo "----- end -----"
 
       - name: Deploy to shinyapps.io
         env:
@@ -43,7 +55,6 @@ jobs:
           SHINY_SECRET: ${{ secrets.SHINYSECRET }}
         run: |
           Rscript -e '
-            options(repos = c(CRAN = Sys.getenv("CRAN_REPO")));
             rsconnect::setAccountInfo(
               name   = "pingliao",
               token  = Sys.getenv("SHINY_TOKEN"),
